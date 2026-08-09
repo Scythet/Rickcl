@@ -24,7 +24,7 @@ jobs:
         run: cordova platform add android
 
       - name: Add MSAuth plugin
-        run: cordova plugin add $GITHUB_WORKSPACE/plugins/cordova-plugin-msauth
+        run: cordova plugin add file:plugins/cordova-plugin-msauth
 
       - name: Build debug APK
         run: cordova build android
