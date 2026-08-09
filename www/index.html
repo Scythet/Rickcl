@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Rickcl — Launcher</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0a0f;
+    --surface:#15131c;
+    --surface-2:#1c1926;
+    --surface-hover:#221f2e;
+    --border:#2b273a;
+    --text:#f1eef7;
+    --text-muted:#948da8;
+    --text-dim:#635d78;
+    --accent:#a970ff;
+    --accent-soft:rgba(169,112,255,0.14);
+    --accent-strong:#c398ff;
+    --online:#6ee7b7;
+    --offline:#635d78;
+    --danger:#ff6b6b;
+    --danger-soft:rgba(255,107,107,0.12);
+    --radius:10px;
+    --radius-lg:16px;
+    --radius-pill:10px;
+    --on-accent:#150f22;
+    --transition-theme: background .25s ease, color .25s ease, border-color .25s ease;
+  }
+
+  /* Warm theme — toggled from Settings, styled after a rounded cream/graphite
+     reference look: warm dark graphite background, cream pill buttons. */
+  body[data-theme="warm"]{
+    --bg:#2a2724;
+    --surface:#332f2a;
+    --surface-2:#3c3731;
+    --surface-hover:#453f38;
+    --border:#4c463e;
+    --text:#f5ecd9;
+    --text-muted:#b7ab94;
+    --text-dim:#8c8171;
+    --accent:#f2e6c9;
+    --accent-soft:rgba(242,230,201,0.14);
+    --accent-strong:#fff6e2;
+    --on-accent:#2a2724;
+    --online:#9fdba0;
+    --radius:16px;
+    --radius-lg:20px;
+    --radius-pill:999px;
+  }
+  body[data-theme="warm"]{
+    background:var(--bg);
+  }
+  body[data-theme="warm"] .brand-name{font-family:'Caveat', cursive; font-size:23px; font-weight:700;}
+  body[data-theme="warm"] .brand-mark{background:var(--accent); box-shadow:0 0 18px rgba(242,230,201,0.35);}
+  body[data-theme="warm"] .brand-mark svg path{stroke:var(--on-accent);}
+  body[data-theme="warm"] .hero{background:linear-gradient(135deg, rgba(242,230,201,0.10), rgba(51,47,42,0.4));}
+  body[data-theme="warm"] .hero-eyebrow{color:var(--accent-strong);}
+  body[data-theme="warm"] .hero-play{box-shadow:0 6px 26px rgba(242,230,201,0.25);}
+  body[data-theme="warm"] .hero-play:not(:disabled):hover{box-shadow:0 10px 30px rgba(242,230,201,0.35);}
+  body[data-theme="warm"] *{transition:var(--transition-theme);}
+
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(169,112,255,0.10), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 0%, rgba(110,231,183,0.05), transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--accent); color:#0b0a0f;}
+  button{font-family:inherit; cursor:pointer;}
+  input, select{font-family:inherit;}
+  ::-webkit-scrollbar{width:8px; height:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--surface-2); border-radius:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+
+  .app{display:flex; height:100vh; width:100vw; overflow:hidden;}
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    width:224px; flex-shrink:0;
+    background:rgba(21,19,28,0.7);
+    border-right:1px solid var(--border);
+    display:flex; flex-direction:column;
+    padding:20px 12px;
+    backdrop-filter:blur(20px);
+  }
+  .brand{
+    display:flex; align-items:center; gap:10px;
+    padding:4px 8px 24px 8px;
+  }
+  .brand-mark{
+    width:28px; height:28px; border-radius:8px;
+    background:linear-gradient(135deg, var(--accent), #6b3fb8);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 0 18px rgba(169,112,255,0.45);
+    flex-shrink:0;
+  }
+  .brand-mark svg{width:15px; height:15px;}
+  .brand-name{font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:16px; letter-spacing:0.2px;}
+  .brand-sub{font-size:10px; color:var(--text-dim); letter-spacing:1.4px; text-transform:uppercase; margin-top:-2px;}
+
+  .nav{display:flex; flex-direction:column; gap:2px; flex:1; min-height:0; overflow-y:auto;}
+  .nav-item{
+    display:flex; align-items:center; gap:11px;
+    padding:10px 12px; border-radius:var(--radius-pill);
+    color:var(--text-muted); font-size:13px; font-weight:500;
+    background:none; border:none; text-align:left; width:100%;
+    transition:background .15s, color .15s;
+  }
+  .nav-item svg{width:16px; height:16px; opacity:0.85; flex-shrink:0;}
+  .nav-item:hover{background:var(--surface-2); color:var(--text);}
+  .nav-item.active{background:var(--accent-soft); color:var(--accent-strong);}
+  .nav-item.active svg{opacity:1;}
+  .nav-divider{height:1px; background:var(--border); margin:10px 4px;}
+
+  .sidebar-footer{
+    border-top:1px solid var(--border); padding-top:10px; margin-top:8px; flex-shrink:0;
+  }
+  .account-chip{
+    display:flex; align-items:center; gap:10px;
+    padding:9px 10px; border-radius:var(--radius-pill);
+    background:var(--surface-2); border:1px solid var(--border);
+    cursor:pointer; transition:border-color .15s; width:100%;
+  }
+  .account-chip:hover{border-color:var(--accent);}
+  .account-avatar{
+    width:28px; height:28px; border-radius:7px; flex-shrink:0;
+    background:var(--surface-hover); border:1px solid var(--border);
+  }
+  .account-meta{flex:1; min-width:0; text-align:left;}
+  .account-name{font-size:12px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .account-status{font-size:10px; color:var(--text-dim);}
+  .account-status.linked{color:var(--online); display:flex; align-items:center; gap:4px;}
+  .account-status.linked::before{content:''; width:5px; height:5px; border-radius:50%; background:var(--online); box-shadow:0 0 6px var(--online);}
+
+  /* ---------- Main ---------- */
+  .main{flex:1; display:flex; flex-direction:column; min-width:0; overflow:hidden;}
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:12px;
+    padding:20px 28px 16px;
+    flex-shrink:0;
+  }
+  .topbar-title{font-family:'Space Grotesk', sans-serif; font-size:19px; font-weight:600;}
+  .topbar-sub{font-size:12px; color:var(--text-muted); margin-top:2px;}
+
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    padding:9px 15px; border-radius:var(--radius-pill);
+    font-size:12.5px; font-weight:600; border:1px solid transparent;
+    transition:transform .12s, background .15s, border-color .15s;
+    white-space:nowrap;
+  }
+  .btn:active{transform:scale(0.97);}
+  .btn svg{width:13px; height:13px; flex-shrink:0;}
+  .btn-primary{background:var(--accent); color:var(--on-accent);}
+  .btn-primary:hover{background:var(--accent-strong);}
+  .btn-ghost{background:var(--surface-2); color:var(--text); border-color:var(--border);}
+  .btn-ghost:hover{background:var(--surface-hover); border-color:var(--accent);}
+  .btn-danger-ghost{background:transparent; color:var(--danger); border-color:transparent;}
+  .btn-danger-ghost:hover{background:var(--danger-soft);}
+  .btn-icon{padding:8px; border-radius:8px; background:transparent; border:1px solid var(--border); color:var(--text-muted); flex-shrink:0;}
+  .btn-icon:hover{color:var(--text); border-color:var(--accent);}
+
+  .view{display:none; padding:0 28px 28px; overflow-y:auto; flex:1; min-height:0;}
+  .view.active{display:block;}
+
+  /* ---------- Home ---------- */
+  .hero{
+    border-radius:var(--radius-lg); border:1px solid var(--border);
+    background:linear-gradient(135deg, rgba(169,112,255,0.10), rgba(21,19,28,0.4));
+    padding:26px; display:flex; align-items:center; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    margin-bottom:20px;
+  }
+  .hero-left{flex:1; min-width:220px;}
+  .hero-eyebrow{font-size:10.5px; letter-spacing:1.6px; text-transform:uppercase; color:var(--accent-strong); font-weight:600; margin-bottom:8px;}
+  .hero-title{font-family:'Space Grotesk', sans-serif; font-size:22px; font-weight:700; margin-bottom:6px; line-height:1.25;}
+  .hero-desc{font-size:12.5px; color:var(--text-muted); max-width:420px; line-height:1.5;}
+  .hero-play{
+    display:flex; align-items:center; justify-content:center; gap:9px;
+    padding:14px 26px; border-radius:var(--radius-pill);
+    background:var(--accent); color:var(--on-accent); font-weight:700; font-size:14px;
+    border:none; box-shadow:0 6px 26px rgba(169,112,255,0.30);
+    transition:transform .12s, box-shadow .15s;
+    flex-shrink:0;
+  }
+  .hero-play:disabled{background:var(--surface-2); color:var(--text-dim); box-shadow:none; cursor:not-allowed;}
+  .hero-play:not(:disabled):hover{transform:translateY(-1px); box-shadow:0 10px 30px rgba(169,112,255,0.4);}
+  .hero-play svg{width:17px; height:17px;}
+
+  .stat-row{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:24px;}
+  .stat-card{
+    border:1px solid var(--border); border-radius:var(--radius);
+    background:var(--surface); padding:14px 16px; min-width:0;
+  }
+  .stat-num{font-family:'Space Grotesk', sans-serif; font-size:21px; font-weight:700;}
+  .stat-label{font-size:11px; color:var(--text-muted); margin-top:2px;}
+
+  .section-heading{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:12px;
+  }
+  .section-heading h3{font-family:'Space Grotesk', sans-serif; font-size:13px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.8px;}
+
+  /* ---------- Cards / lists ---------- */
+  .list{display:flex; flex-direction:column; gap:9px;}
+  .card{
+    display:flex; align-items:center; gap:13px;
+    border:1px solid var(--border); border-radius:var(--radius);
+    background:var(--surface); padding:12px 14px;
+    transition:border-color .15s, background .15s;
+    flex-wrap:wrap;
+  }
+  .card:hover{border-color:#3c3652; background:var(--surface-2);}
+  .card-icon{width:38px; height:38px; border-radius:8px; flex-shrink:0; image-rendering:pixelated;}
+  .card-body{flex:1; min-width:120px;}
+  .card-name{font-size:13px; font-weight:600; display:flex; align-items:center; gap:7px; flex-wrap:wrap;}
+  .card-sub{font-size:11px; color:var(--text-muted); font-family:'JetBrains Mono', monospace; margin-top:2px; word-break:break-all;}
+  .ping-dot{width:6px; height:6px; border-radius:50%; flex-shrink:0;}
+  .ping-dot.on{background:var(--online); box-shadow:0 0 6px var(--online);}
+  .ping-dot.off{background:var(--offline);}
+  .badge{
+    font-size:9.5px; font-weight:600; padding:2px 7px; border-radius:5px;
+    background:var(--surface-2); color:var(--text-muted); border:1px solid var(--border);
+    text-transform:uppercase; letter-spacing:0.4px;
+  }
+  .badge.realm{color:var(--accent-strong); border-color:rgba(169,112,255,0.3);}
+  .card-actions{display:flex; gap:6px; flex-shrink:0; margin-left:auto;}
+
+  .empty{
+    border:1px dashed var(--border); border-radius:var(--radius-lg);
+    padding:36px 20px; text-align:center; color:var(--text-muted);
+  }
+  .empty svg{width:30px; height:30px; opacity:0.35; margin-bottom:10px;}
+  .empty-title{font-size:13px; font-weight:600; color:var(--text); margin-bottom:4px;}
+  .empty-desc{font-size:11.5px; max-width:280px; margin:0 auto;}
+
+  /* ---------- Accounts view ---------- */
+  .accounts-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(210px,1fr)); gap:12px;}
+  .account-card{
+    border:1px solid var(--border); border-radius:var(--radius-lg);
+    background:var(--surface); padding:16px; position:relative; min-width:0;
+  }
+  .account-card.active-account{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent);}
+  .active-tag{
+    position:absolute; top:12px; right:12px; font-size:9px; font-weight:700;
+    color:var(--online); text-transform:uppercase; letter-spacing:0.5px;
+  }
+  .account-card .card-icon{width:46px; height:46px; border-radius:11px; margin-bottom:10px;}
+  .account-card .card-name{font-size:14px;}
+  .account-card .card-sub{margin-top:1px;}
+  .account-card-actions{display:flex; gap:8px; margin-top:14px; flex-wrap:wrap;}
+  .add-account-card{
+    border:1px dashed var(--border); border-radius:var(--radius-lg);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:8px; padding:18px; min-height:150px; color:var(--text-muted);
+    background:transparent; transition:border-color .15s, color .15s;
+  }
+  .add-account-card:hover{border-color:var(--accent); color:var(--accent-strong);}
+  .add-account-card svg{width:20px; height:20px;}
+  .add-account-card span{font-size:12px; font-weight:600;}
+
+  /* ---------- Settings ---------- */
+  .settings-group{
+    border:1px solid var(--border); border-radius:var(--radius-lg);
+    background:var(--surface); margin-bottom:14px; overflow:hidden;
+  }
+  .settings-group-title{
+    padding:13px 16px; font-size:11.5px; font-weight:600; color:var(--text-muted);
+    text-transform:uppercase; letter-spacing:0.8px; border-bottom:1px solid var(--border);
+  }
+  .setting-row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; border-bottom:1px solid var(--border); gap:16px; flex-wrap:wrap;
+  }
+  .setting-row:last-child{border-bottom:none;}
+  .setting-label{font-size:13px; font-weight:500;}
+  .setting-desc{font-size:11px; color:var(--text-muted); margin-top:2px; max-width:340px;}
+  .setting-control select{
+    background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+    padding:8px 12px; border-radius:8px; font-size:12px; min-width:150px; max-width:100%;
+  }
+
+  .switch{position:relative; width:36px; height:21px; flex-shrink:0;}
+  .switch input{opacity:0; width:0; height:0;}
+  .switch-track{
+    position:absolute; inset:0; background:var(--surface-2); border:1px solid var(--border);
+    border-radius:20px; transition:.15s; cursor:pointer;
+  }
+  .switch-track::before{
+    content:''; position:absolute; width:15px; height:15px; left:2px; top:2px;
+    background:var(--text-dim); border-radius:50%; transition:.15s;
+  }
+  .switch input:checked + .switch-track{background:var(--accent-soft); border-color:var(--accent);}
+  .switch input:checked + .switch-track::before{transform:translateX(15px); background:var(--accent);}
+
+  .danger-zone{border-color:rgba(255,107,107,0.25);}
+  .danger-zone .settings-group-title{color:var(--danger); border-color:rgba(255,107,107,0.2);}
+
+  /* ---------- Modal ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(6,5,10,0.72);
+    backdrop-filter:blur(4px);
+    display:none; align-items:center; justify-content:center; z-index:50;
+    padding:16px;
+  }
+  .modal-overlay.open{display:flex;}
+  .modal{
+    width:380px; max-width:100%;
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+    box-shadow:0 20px 60px rgba(0,0,0,0.5);
+    animation:modal-in .16s ease;
+    max-height:90vh; display:flex; flex-direction:column;
+  }
+  @keyframes modal-in{from{opacity:0; transform:translateY(8px) scale(.98);} to{opacity:1; transform:none;}}
+  .modal-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:15px 16px; border-bottom:1px solid var(--border); flex-shrink:0;
+  }
+  .modal-header h3{font-family:'Space Grotesk',sans-serif; font-size:14px; font-weight:600;}
+  .modal-close{background:none; border:none; color:var(--text-muted); padding:4px;}
+  .modal-close:hover{color:var(--text);}
+  .modal-body{padding:16px; overflow-y:auto;}
+  .field{margin-bottom:13px;}
+  .field label{display:block; font-size:11px; font-weight:600; color:var(--text-muted); margin-bottom:6px;}
+  .field input{
+    width:100%; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+    padding:10px 12px; border-radius:8px; font-size:13px;
+  }
+  .field input:focus{outline:none; border-color:var(--accent);}
+  .field-row{display:flex; gap:10px;}
+  .field-row .field{flex:1; min-width:0;}
+  .modal-footer{display:flex; justify-content:flex-end; gap:8px; padding:13px 16px; border-top:1px solid var(--border); flex-shrink:0;}
+
+  .device-code-box{
+    text-align:center; padding:8px 0 4px;
+  }
+  .device-url{font-size:12px; color:var(--text-muted); margin-bottom:4px;}
+  .device-url b{color:var(--text);}
+  .device-code{
+    font-family:'JetBrains Mono', monospace; font-size:24px; font-weight:500;
+    letter-spacing:3px; margin:12px 0; color:var(--accent-strong); word-break:break-all;
+  }
+  .device-status{font-size:11.5px; color:var(--text-muted); display:flex; align-items:center; justify-content:center; gap:8px; text-align:center;}
+  .spinner{
+    width:12px; height:12px; border-radius:50%; flex-shrink:0;
+    border:2px solid var(--border); border-top-color:var(--accent);
+    animation:spin .7s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* ---------- Toasts ---------- */
+  #toast-container{position:fixed; bottom:16px; right:16px; left:16px; display:flex; flex-direction:column; align-items:flex-end; gap:8px; z-index:80; pointer-events:none;}
+  .toast{
+    background:var(--surface-2); border:1px solid var(--border); border-radius:9px;
+    padding:10px 15px; font-size:12px; box-shadow:0 8px 24px rgba(0,0,0,0.4);
+    animation:toast-in .18s ease; max-width:280px;
+  }
+  @keyframes toast-in{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;}}
+
+  /* ---------- Responsive ---------- */
+  @media (max-width:860px){
+    .sidebar{width:68px; padding:14px 8px;}
+    .brand-name, .brand-sub, .nav-item span, .account-meta{display:none;}
+    .brand{justify-content:center; padding:4px 0 20px;}
+    .nav-item{justify-content:center; padding:11px;}
+    .account-chip{justify-content:center; padding:9px;}
+  }
+
+  @media (max-width:600px){
+    .topbar{padding:16px 16px 12px;}
+    .view{padding:0 16px 20px;}
+    .hero{padding:20px; flex-direction:column; align-items:stretch;}
+    .hero-title{font-size:19px;}
+    .hero-play{width:100%;}
+    .stat-row{grid-template-columns:repeat(2,1fr); gap:8px;}
+    .accounts-grid{grid-template-columns:1fr 1fr;}
+    .card{padding:11px 12px;}
+    .card-actions{margin-left:0; width:100%; justify-content:flex-start;}
+  }
+
+  @media (max-width:380px){
+    .accounts-grid{grid-template-columns:1fr;}
+  }
+
+  [tabindex]:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible{
+    outline:2px solid var(--accent); outline-offset:2px;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 2L3 7v10l9 5 9-5V7l-9-5z" stroke="#150f22" stroke-width="2" stroke-linejoin="round"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">Rickcl</div>
+        <div class="brand-sub">Bedrock Launcher</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-item active" data-view="home">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
+        <span>Home</span>
+      </button>
+      <button class="nav-item" data-view="servers">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><circle cx="7" cy="7" r="1" fill="currentColor" stroke="none"/><circle cx="7" cy="17" r="1" fill="currentColor" stroke="none"/></svg>
+        <span>Servers</span>
+      </button>
+      <button class="nav-item" data-view="realms">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 21V10l3-3 3 3V4l2-2 2 2v6l3-3 3 3v11z"/></svg>
+        <span>Realms</span>
+      </button>
+      <div class="nav-divider"></div>
+      <button class="nav-item" data-view="accounts">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.2"/><path d="M5 20c0-3.5 3.1-6 7-6s7 2.5 7 6"/></svg>
+        <span>Accounts</span>
+      </button>
+      <button class="nav-item" data-view="settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.7 7.7 0 0 0-1.7-1L15 3h-4l-.3 2.6a7.7 7.7 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a7.6 7.6 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.7 7.7 0 0 0 1.7 1L11 21h4l.3-2.6a7.7 7.7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.6z"/></svg>
+        <span>Settings</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="account-chip" id="sidebar-account-chip">
+        <div class="account-avatar" id="sidebar-avatar"></div>
+        <div class="account-meta">
+          <div class="account-name" id="sidebar-account-name">No account</div>
+          <div class="account-status" id="sidebar-account-status">Tap to link</div>
+        </div>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN ================= -->
+  <main class="main">
+
+    <!-- ---- HOME ---- -->
+    <section class="view active" id="view-home">
+      <div class="topbar">
+        <div>
+          <div class="topbar-title">Home</div>
+          <div class="topbar-sub">Welcome back</div>
+        </div>
+      </div>
+      <div class="view-inner" style="padding:0 28px;">
+        <div class="hero">
+          <div class="hero-left">
+            <div class="hero-eyebrow">Bedrock 1.21.40</div>
+            <div class="hero-title" id="hero-title">Link an account to play</div>
+            <div class="hero-desc" id="hero-desc">Once you link a Microsoft account, Play launches Minecraft Bedrock with it. Change accounts or version anytime from Settings.</div>
+          </div>
+          <button class="hero-play" id="btn-play" disabled>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            Play
+          </button>
+        </div>
+
+        <div class="stat-row">
+          <div class="stat-card"><div class="stat-num" id="stat-servers">0</div><div class="stat-label">Saved servers</div></div>
+          <div class="stat-card"><div class="stat-num" id="stat-realms">0</div><div class="stat-label">Linked Realms</div></div>
+          <div class="stat-card"><div class="stat-num" id="stat-accounts">0</div><div class="stat-label">Accounts</div></div>
+          <div class="stat-card"><div class="stat-num">1.21.40</div><div class="stat-label">Active version</div></div>
+        </div>
+
+        <div class="section-heading"><h3>Recent servers</h3></div>
+        <div class="list" id="home-recent-list"></div>
+      </div>
+    </section>
+
+    <!-- ---- SERVERS ---- -->
+    <section class="view" id="view-servers">
+      <div class="topbar">
+        <div>
+          <div class="topbar-title">Servers</div>
+          <div class="topbar-sub" id="servers-sub">0 saved servers</div>
+        </div>
+        <button class="btn btn-primary" id="btn-add-server">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+          Add server
+        </button>
+      </div>
+      <div style="padding:0 28px;">
+        <div class="list" id="servers-list"></div>
+      </div>
+    </section>
+
+    <!-- ---- REALMS ---- -->
+    <section class="view" id="view-realms">
+      <div class="topbar">
+        <div>
+          <div class="topbar-title">Realms</div>
+          <div class="topbar-sub">Pulled from your linked Xbox account</div>
+        </div>
+        <button class="btn btn-ghost" id="btn-refresh-realms">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 4v6h-6"/></svg>
+          Refresh
+        </button>
+      </div>
+      <div style="padding:0 28px;">
+        <div class="list" id="realms-list"></div>
+      </div>
+    </section>
+
+    <!-- ---- ACCOUNTS ---- -->
+    <section class="view" id="view-accounts">
+      <div class="topbar">
+        <div>
+          <div class="topbar-title">Accounts</div>
+          <div class="topbar-sub">Microsoft accounts linked to this launcher</div>
+        </div>
+      </div>
+      <div style="padding:0 28px;">
+        <div class="accounts-grid" id="accounts-grid"></div>
+      </div>
+    </section>
+
+    <!-- ---- SETTINGS ---- -->
+    <section class="view" id="view-settings">
+      <div class="topbar">
+        <div>
+          <div class="topbar-title">Settings</div>
+          <div class="topbar-sub">Launcher preferences</div>
+        </div>
+      </div>
+      <div style="padding:0 28px; max-width:640px;">
+
+        <div class="settings-group">
+          <div class="settings-group-title">Appearance</div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Warm theme</div>
+              <div class="setting-desc">Switches to a rounded, cream-on-graphite look instead of the default dark purple</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="toggle-theme"><span class="switch-track"></span></label>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <div class="settings-group-title">Game</div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Minecraft version</div>
+              <div class="setting-desc">Version launched when you press Play</div>
+            </div>
+            <div class="setting-control">
+              <select>
+                <option>1.21.40 (latest)</option>
+                <option>1.21.33</option>
+                <option>1.20.81</option>
+              </select>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Close launcher when the game starts</div>
+              <div class="setting-desc">Frees up memory while you play</div>
+            </div>
+            <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <div class="settings-group-title">General</div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Notifications</div>
+              <div class="setting-desc">Realm invites and launcher updates</div>
+            </div>
+            <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+          </div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Check for updates automatically</div>
+              <div class="setting-desc">Looks for a new launcher version on startup</div>
+            </div>
+            <label class="switch"><input type="checkbox" checked><span class="switch-track"></span></label>
+          </div>
+        </div>
+
+        <div class="settings-group danger-zone">
+          <div class="settings-group-title">Danger zone</div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-label">Reset launcher data</div>
+              <div class="setting-desc">Deletes saved servers and unlinks every account</div>
+            </div>
+            <button class="btn btn-danger-ghost" id="btn-reset">Reset</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ================= MODAL: Add server ================= -->
+<div class="modal-overlay" id="modal-add-server">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Add server</h3>
+      <button class="modal-close" data-close><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Name</label>
+        <input type="text" id="input-server-name" placeholder="My SMP server">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Address</label>
+          <input type="text" id="input-server-address" placeholder="play.example.net">
+        </div>
+        <div class="field" style="max-width:100px;">
+          <label>Port</label>
+          <input type="text" id="input-server-port" placeholder="19132">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" data-close>Cancel</button>
+      <button class="btn btn-primary" id="btn-save-server">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: Link account ================= -->
+<div class="modal-overlay" id="modal-link-account">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Link account</h3>
+      <button class="modal-close" data-close><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="device-code-box">
+        <div class="device-url">Go to <b>microsoft.com/link</b> and enter:</div>
+        <div class="device-code" id="device-code-value">••••-••••</div>
+        <div class="device-status"><span class="spinner"></span><span id="device-status-text">Waiting for authentication…</span></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" data-close>Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+/* =========================================================
+   In-memory state — no fake/sample data on purpose.
+   Everything starts empty; the real Android app fills this
+   from MicrosoftAuth.kt (accounts) and local storage (servers).
+   ========================================================= */
+const state = {
+  servers: [],
+  realms: [],
+  accounts: [],
+};
+
+/* ---------- Utilities ---------- */
+function toast(msg){
+  const c = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  c.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .2s'; setTimeout(()=>el.remove(),200); }, 2600);
+}
+
+function hashSeed(str){
+  let h = 0;
+  for(let i=0;i<str.length;i++){ h = (h<<5) - h + str.charCodeAt(i); h |= 0; }
+  return Math.abs(h);
+}
+
+// Deterministic pixel-art icon derived from a real name/address the user
+// entered — not random, not decorative filler. Same input always -> same icon.
+function pixelIconDataUri(seed, size){
+  const n = 5;
+  const px = size / n;
+  const rnd = hashSeed(seed);
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const base = ['#1c1926','#231f30','#2c2740'];
+  ctx.fillStyle = base[rnd % base.length];
+  ctx.fillRect(0,0,size,size);
+  for(let y=0;y<n;y++){
+    for(let x=0; x<Math.ceil(n/2); x++){
+      const bit = (rnd >> (y*3+x)) & 1;
+      if(bit){
+        const glint = ((rnd >> (y+x)) & 3) === 0;
+        ctx.fillStyle = glint ? '#c398ff' : '#392f52';
+        ctx.fillRect(x*px, y*px, px, px);
+        ctx.fillRect((n-1-x)*px, y*px, px, px);
+      }
+    }
+  }
+  return canvas.toDataURL();
+}
+
+/* ---------- Navigation ---------- */
+document.querySelectorAll('.nav-item[data-view]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const view = btn.dataset.view;
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active', n.dataset.view===view));
+    document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active', v.id === 'view-'+view));
+  });
+});
+
+/* ---------- Render: Servers ---------- */
+function renderServers(){
+  const list = document.getElementById('servers-list');
+  document.getElementById('servers-sub').textContent = state.servers.length + ' saved server' + (state.servers.length===1?'':'s');
+  document.getElementById('stat-servers').textContent = state.servers.length;
+
+  if(state.servers.length === 0){
+    list.innerHTML = emptyState('server','No servers yet','Add a server address to connect straight from here.');
+    renderHomeRecent();
+    return;
+  }
+  list.innerHTML = state.servers.map(s => `
+    <div class="card">
+      <img class="card-icon" src="${pixelIconDataUri(s.name+s.address,40)}" alt="">
+      <div class="card-body">
+        <div class="card-name">${escapeHtml(s.name)} <span class="ping-dot ${s.online?'on':'off'}"></span></div>
+        <div class="card-sub">${escapeHtml(s.address)}:${s.port}</div>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-primary" onclick="connectServer('${s.id}')">Connect</button>
+        <button class="btn-icon" title="Remove" onclick="removeServer('${s.id}')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/></svg>
+        </button>
+      </div>
+    </div>
+  `).join('');
+  renderHomeRecent();
+}
+
+function renderHomeRecent(){
+  const el = document.getElementById('home-recent-list');
+  const items = state.servers.slice(0,3);
+  if(items.length===0){ el.innerHTML = emptyState('server','No recent activity','Servers you connect to will show up here.'); return; }
+  el.innerHTML = items.map(s=>`
+    <div class="card">
+      <img class="card-icon" src="${pixelIconDataUri(s.name+s.address,40)}" alt="">
+      <div class="card-body">
+        <div class="card-name">${escapeHtml(s.name)} <span class="ping-dot ${s.online?'on':'off'}"></span></div>
+        <div class="card-sub">${escapeHtml(s.address)}:${s.port}</div>
+      </div>
+      <button class="btn btn-ghost" onclick="connectServer('${s.id}')">Connect</button>
+    </div>
+  `).join('');
+}
+
+function connectServer(id){
+  const s = state.servers.find(x=>x.id===id);
+  toast('Connecting to ' + s.name + '…');
+}
+function removeServer(id){
+  state.servers = state.servers.filter(s=>s.id!==id);
+  renderServers();
+  toast('Server removed');
+}
+
+/* ---------- Render: Realms ---------- */
+function renderRealms(){
+  const list = document.getElementById('realms-list');
+  document.getElementById('stat-realms').textContent = state.realms.length;
+  if(state.realms.length===0){
+    list.innerHTML = emptyState('realm','No Realms linked','Realms from your Xbox account will appear here automatically once you link an account.');
+    return;
+  }
+  list.innerHTML = state.realms.map(r=>`
+    <div class="card">
+      <img class="card-icon" src="${pixelIconDataUri('realm'+r.name,40)}" alt="">
+      <div class="card-body">
+        <div class="card-name">${escapeHtml(r.name)} <span class="badge realm">Realm</span></div>
+        <div class="card-sub">Owner: ${escapeHtml(r.owner)} · ${r.players} players</div>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-primary" onclick="toast('Connecting to ${escapeHtml(r.name)}…')">Connect</button>
+        <button class="btn-icon" title="Leave Realm" onclick="leaveRealm('${r.id}')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+function leaveRealm(id){
+  state.realms = state.realms.filter(r=>r.id!==id);
+  renderRealms();
+  toast('Left the Realm');
+}
+document.getElementById('btn-refresh-realms').addEventListener('click', ()=>{
+  if(!state.accounts.some(a=>a.active)){ toast('Link an account first'); return; }
+  toast('Checking your account for Realms…');
+});
+
+/* ---------- Render: Accounts ---------- */
+function renderAccounts(){
+  const grid = document.getElementById('accounts-grid');
+  document.getElementById('stat-accounts').textContent = state.accounts.length;
+  const active = state.accounts.find(a=>a.active);
+
+  document.getElementById('sidebar-account-name').textContent = active ? active.name : 'No account';
+  const statusEl = document.getElementById('sidebar-account-status');
+  statusEl.textContent = active ? 'Active' : 'Tap to link';
+  statusEl.className = 'account-status' + (active ? ' linked' : '');
+  document.getElementById('hero-title').textContent = active ? `Play as ${active.name}` : 'Link an account to play';
+  document.getElementById('hero-desc').textContent = active
+    ? 'Play launches Minecraft Bedrock 1.21.40 with this account. Switch accounts or version anytime from Settings.'
+    : 'Once you link a Microsoft account, Play launches Minecraft Bedrock with it. Change accounts or version anytime from Settings.';
+  document.getElementById('btn-play').disabled = !active;
+
+  const cards = state.accounts.map(a=>`
+    <div class="account-card ${a.active?'active-account':''}">
+      ${a.active?'<div class="active-tag">Active</div>':''}
+      <img class="card-icon" src="${pixelIconDataUri(a.tag,46)}" alt="">
+      <div class="card-name">${escapeHtml(a.name)}</div>
+      <div class="card-sub">${escapeHtml(a.tag)}</div>
+      <div class="account-card-actions">
+        ${a.active ? '' : `<button class="btn btn-ghost" onclick="setActiveAccount('${a.id}')">Use this</button>`}
+        <button class="btn btn-danger-ghost" onclick="unlinkAccount('${a.id}')">Unlink</button>
+      </div>
+    </div>
+  `).join('');
+
+  grid.innerHTML = cards + `
+    <button class="add-account-card" id="btn-add-account">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      <span>Link account</span>
+    </button>
+  `;
+  document.getElementById('btn-add-account').addEventListener('click', openLinkAccountModal);
+}
+function setActiveAccount(id){
+  state.accounts.forEach(a=> a.active = (a.id===id));
+  renderAccounts();
+  toast('Active account updated');
+}
+function unlinkAccount(id){
+  state.accounts = state.accounts.filter(a=>a.id!==id);
+  if(state.accounts.length && !state.accounts.some(a=>a.active)) state.accounts[0].active = true;
+  renderAccounts();
+  toast('Account unlinked');
+}
+
+/* ---------- Modal: Add server ---------- */
+const modalServer = document.getElementById('modal-add-server');
+document.getElementById('btn-add-server').addEventListener('click', ()=> modalServer.classList.add('open'));
+modalServer.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click', ()=> modalServer.classList.remove('open')));
+
+document.getElementById('btn-save-server').addEventListener('click', ()=>{
+  const name = document.getElementById('input-server-name').value.trim();
+  const address = document.getElementById('input-server-address').value.trim();
+  const port = document.getElementById('input-server-port').value.trim() || '19132';
+  if(!name || !address){ toast('Fill in a name and an address'); return; }
+  // "online" here is just an unknown/pending state until the app actually pings it —
+  // not a fabricated status.
+  state.servers.push({ id:'s'+Date.now(), name, address, port, online: false });
+  document.getElementById('input-server-name').value='';
+  document.getElementById('input-server-address').value='';
+  document.getElementById('input-server-port').value='';
+  modalServer.classList.remove('open');
+  renderServers();
+  toast('Server added');
+});
+
+/* ---------- Modal: Link account ---------- */
+const modalAccount = document.getElementById('modal-link-account');
+modalAccount.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click', ()=> modalAccount.classList.remove('open')));
+
+function openLinkAccountModal(){
+  // GUI shell only — no auth logic wired up here on purpose.
+  document.getElementById('device-code-value').textContent = 'XXXX-XXXX';
+  document.getElementById('device-status-text').textContent = 'Waiting for authentication…';
+  modalAccount.classList.add('open');
+}
+document.getElementById('sidebar-account-chip').addEventListener('click', ()=>{
+  document.querySelector('.nav-item[data-view="accounts"]').click();
+  if(state.accounts.length===0) setTimeout(openLinkAccountModal, 150);
+});
+
+/* ---------- Home play button ---------- */
+document.getElementById('btn-play').addEventListener('click', ()=>{
+  const active = state.accounts.find(a=>a.active);
+  if(!active) return;
+  toast('Launching Minecraft Bedrock…');
+});
+
+/* ---------- Reset ---------- */
+document.getElementById('btn-reset').addEventListener('click', ()=>{
+  if(!confirm('This will delete every saved server and unlink every account. Continue?')) return;
+  state.servers = []; state.realms = []; state.accounts = [];
+  renderServers(); renderRealms(); renderAccounts();
+  toast('Launcher data reset');
+});
+
+/* ---------- Helpers ---------- */
+function emptyState(kind, title, desc){
+  const icons = {
+    server: '<path d="M3 4h18v6H3zM3 14h18v6H3z"/><circle cx="7" cy="7" r="1" fill="currentColor"/><circle cx="7" cy="17" r="1" fill="currentColor"/>',
+    realm: '<path d="M4 21V10l3-3 3 3V4l2-2 2 2v6l3-3 3 3v11z"/>',
+  };
+  return `<div class="empty">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">${icons[kind]}</svg>
+    <div class="empty-title">${title}</div>
+    <div class="empty-desc">${desc}</div>
+  </div>`;
+}
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---------- Theme toggle ---------- */
+document.getElementById('toggle-theme').addEventListener('change', (e)=>{
+  document.body.dataset.theme = e.target.checked ? 'warm' : '';
+  toast(e.target.checked ? 'Warm theme on' : 'Warm theme off');
+});
+
+/* ---------- Init ---------- */
+renderServers();
+renderRealms();
+renderAccounts();
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "rickcl",
+  "displayName": "Rickcl",
+  "version": "1.0.0",
+  "devDependencies": {
+    "cordova-android": "^13.0.0"
+  },
+  "cordova": {
+    "platforms": ["android"]
+  }
+}
