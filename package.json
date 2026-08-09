@@ -6,6 +6,9 @@
     "cordova-android": "^13.0.0"
   },
   "cordova": {
-    "platforms": ["android"]
+    "platforms": ["android"],
+    "plugins": {
+      "cordova-plugin-msauth": {}
+    }
   }
 }
