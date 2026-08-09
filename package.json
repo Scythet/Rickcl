@@ -3,10 +3,13 @@
   "displayName": "Rickcl",
   "version": "1.0.0",
   "devDependencies": {
-    "cordova-android": "^13.0.0"
+    "cordova-android": "^13.0.0",
+    "cordova-plugin-msauth": "file:plugins/cordova-plugin-msauth"
   },
   "cordova": {
-    "platforms": ["android"],
+    "platforms": [
+      "android"
+    ],
     "plugins": {
       "cordova-plugin-msauth": {}
     }
