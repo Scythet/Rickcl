@@ -1,0 +1,13 @@
+{
+  "name": "cordova-plugin-msauth",
+  "version": "1.0.0",
+  "description": "MSAuth plugin for Cordova",
+  "cordova": {
+    "id": "cordova-plugin-msauth",
+    "platforms": ["android"]
+  },
+  "keywords": ["ecosystem:cordova", "cordova-android"],
+  "engines": [],
+  "author": "Rickcl",
+  "license": "ISC"
+}
