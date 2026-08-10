@@ -1,5 +1,3 @@
-package com.lumina.launcher.auth
-
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -8,49 +6,41 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 
-object MicrosoftAuth {
+data class DeviceCodeInfo(
+    val deviceCode: String,
+    val userCode: String,
+    val verificationUri: String,
+    val interval: Int,
+    val expiresIn: Int
+)
 
-    // Client ID de tu aplicación de Azure configurada para cuentas de Microsoft/Xbox
-    private const val CLIENT_ID = "7db897c2-7229-4612-9003-2be8f81b6436"
-    private const val SCOPE = "XboxLive.signin offline_access"
+sealed class PollStatus {
+    data class Pending(val message: String) : PollStatus()
+    data class Done(val result: AuthResult) : PollStatus()
+}
 
+sealed class AuthResult {
+    data class Success(val mcToken: String, val profile: JSONObject) : AuthResult()
+    data class Error(val message: String) : AuthResult()
+}
+
+class MicrosoftAuth(private val clientId: String = "0000000044cc169b") {
     private val client = OkHttpClient()
-
-    data class DeviceCodeInfo(
-        val deviceCode: String,
-        val userCode: String,
-        val verificationUri: String,
-        val expiresIn: Int,
-        val interval: Int
-    )
-
-    data class MinecraftProfile(
-        val uuid: String,
-        val username: String,
-        val skinUrl: String?
-    )
-
-    sealed class AuthResult {
-        data class Success(val profile: MinecraftProfile, val accessToken: String) : AuthResult()
-        data class Error(val message: String) : AuthResult()
-    }
-
-    sealed class PollStatus {
-        object Pending : PollStatus()
-        data class Done(val result: AuthResult) : PollStatus()
-    }
 
     suspend fun requestDeviceCode(): DeviceCodeInfo = withContext(Dispatchers.IO) {
         val body = FormBody.Builder()
-            .add("client_id", CLIENT_ID)
-            .add("scope", SCOPE)
+            .add("client_id", clientId)
+            .add("scope", "XboxLive.signin offline_access")
             .build()
 
         val request = Request.Builder()
-            .url("https://login.microsoftonline.com/common/oauth2/v2.0/devicecode")
+            .url("https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode")
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .header("Accept", "application/json")
             .post(body)
             .build()
 
@@ -64,149 +54,144 @@ object MicrosoftAuth {
                 deviceCode = json.getString("device_code"),
                 userCode = json.getString("user_code"),
                 verificationUri = json.getString("verification_uri"),
-                expiresIn = json.getInt("expires_in"),
-                interval = json.optInt("interval", 5)
+                interval = json.optInt("interval", 5),
+                expiresIn = json.optInt("expires_in", 900)
             )
         }
     }
 
-    suspend fun pollForToken(
-        deviceCode: DeviceCodeInfo,
+    suspend fun pollAccessToken(
+        deviceCode: String,
+        interval: Int,
         onStatus: (PollStatus) -> Unit
-    ) {
-        val deadline = System.currentTimeMillis() + deviceCode.expiresIn * 1000L
-        var intervalMs = deviceCode.interval * 1000L
+    ): AuthResult = withContext(Dispatchers.IO) {
+        val intervalMs = (interval * 1000L).coerceAtLeast(5000L)
+        val grantType = "urn:ietf:params:oauth:grant-type:device_code"
 
-        while (System.currentTimeMillis() < deadline) {
+        while (true) {
             delay(intervalMs)
 
             val body = FormBody.Builder()
-                .add("client_id", CLIENT_ID)
-                .add("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
-                .add("device_code", deviceCode.deviceCode)
+                .add("client_id", clientId)
+                .add("device_code", deviceCode)
+                .add("grant_type", grantType)
                 .build()
 
             val request = Request.Builder()
-                .url("https://login.microsoftonline.com/common/oauth2/v2.0/token")
+                .url("https://login.microsoftonline.com/consumers/oauth2/v2.0/token")
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .header("Accept", "application/json")
                 .post(body)
                 .build()
 
-            val json = withContext(Dispatchers.IO) {
+            val (payload, ok) = withContext(Dispatchers.IO) {
                 client.newCall(request).execute().use { resp ->
-                    JSONObject(resp.body?.string() ?: "{}") to resp.isSuccessful
+                    val text = resp.body?.string() ?: "{}"
+                    JSONObject(text) to resp.isSuccessful
                 }
             }
-
-            val (payload, ok) = json
 
             if (ok) {
                 val msAccessToken = payload.getString("access_token")
-                val result = try {
-                    finishXboxAndMinecraftLogin(msAccessToken)
+                try {
+                    val mcToken = authenticateMinecraftChain(msAccessToken)
+                    val profile = fetchProfile(mcToken)
+                    val result = AuthResult.Success(mcToken, profile)
+                    onStatus(PollStatus.Done(result))
+                    return@withContext result
                 } catch (e: Exception) {
-                    AuthResult.Error(e.message ?: "Error autenticando con Xbox Live")
+                    val errResult = AuthResult.Error(e.message ?: "Error en la cadena de autenticación")
+                    onStatus(PollStatus.Done(errResult))
+                    return@withContext errResult
                 }
-                onStatus(PollStatus.Done(result))
-                return
             } else {
-                when (payload.optString("error")) {
-                    "authorization_pending" -> onStatus(PollStatus.Pending)
-                    "slow_down" -> intervalMs += 5000
-                    "expired_token" -> {
-                        onStatus(PollStatus.Done(AuthResult.Error("El código expiró, pide uno nuevo")))
-                        return
+                val error = payload.optString("error")
+                when (error) {
+                    "authorization_pending" -> {
+                        onStatus(PollStatus.Pending("Esperando a que el usuario autorice..."))
                     }
-                    "authorization_declined" -> {
-                        onStatus(PollStatus.Done(AuthResult.Error("Inicio de sesión rechazado")))
-                        return
+                    "slow_down" -> {
+                        delay(5000)
+                    }
+                    "expired_token" -> {
+                        val errResult = AuthResult.Error("El código de dispositivo ha expirado.")
+                        onStatus(PollStatus.Done(errResult))
+                        return@withContext errResult
                     }
                     else -> {
-                        onStatus(PollStatus.Done(AuthResult.Error(payload.optString("error_description", "Error desconocido"))))
-                        return
+                        val desc = payload.optString("error_description", "Error desconocido")
+                        val errResult = AuthResult.Error(desc)
+                        onStatus(PollStatus.Done(errResult))
+                        return@withContext errResult
                     }
                 }
             }
         }
-        onStatus(PollStatus.Done(AuthResult.Error("Tiempo agotado esperando el login")))
     }
 
-    private suspend fun finishXboxAndMinecraftLogin(msAccessToken: String): AuthResult =
-        withContext(Dispatchers.IO) {
-            val xblBody = JSONObject().apply {
-                put("Properties", JSONObject().apply {
-                    put("AuthMethod", "RPS")
-                    put("SiteName", "user.auth.xboxlive.com")
-                    put("RpsTicket", msAccessToken)
-                })
-                put("RelyingParty", "http://auth.xboxlive.com")
-                put("TokenType", "JWT")
-            }
-            val xblJson = postJson("https://user.auth.xboxlive.com/user/authenticate", xblBody)
-            val xblToken = xblJson.getString("Token")
-            val userHash = xblJson.getJSONObject("DisplayClaims")
-                .getJSONArray("xui").getJSONObject(0).getString("uhs")
-
-            val xstsBody = JSONObject().apply {
-                put("Properties", JSONObject().apply {
-                    put("SandboxId", "RETAIL")
-                    put("UserTokens", org.json.JSONArray().put(xblToken))
-                })
-                put("RelyingParty", "rp://api.minecraftservices.com/")
-                put("TokenType", "JWT")
-            }
-            val xstsResponse = postJsonRaw("https://xsts.auth.xboxlive.com/xsts/authorize", xstsBody)
-            if (!xstsResponse.first) {
-                val err = xstsResponse.second
-                val code = err.optInt("XErr", 0)
-                val msg = when (code) {
-                    2148916233 -> "Esta cuenta de Microsoft no tiene un perfil Xbox. Créalo en xbox.com."
-                    2148916238 -> "Esta cuenta es de un menor de edad y necesita estar en un grupo familiar."
-                    else -> "Xbox Live rechazó la sesión (XErr $code)"
-                }
-                return@withContext AuthResult.Error(msg)
-            }
-            val xstsJson = xstsResponse.second
-            val xstsToken = xstsJson.getString("Token")
-
-            val mcBody = JSONObject().apply {
-                put("identityToken", "XBL3.0 x=$userHash;$xstsToken")
-            }
-            val mcJson = postJson("https://api.minecraftservices.com/authentication/login_with_xbox", mcBody)
-            val mcAccessToken = mcJson.getString("access_token")
-
-            val profileRequest = Request.Builder()
-                .url("https://api.minecraftservices.com/minecraft/profile")
-                .header("Authorization", "Bearer $mcAccessToken")
-                .get()
-                .build()
-
-            client.newCall(profileRequest).execute().use { resp ->
-                val profileJson = JSONObject(resp.body?.string() ?: "{}")
-                if (!resp.isSuccessful) {
-                    val msg = if (resp.code == 404) {
-                        "Esta cuenta no ha comprado Minecraft (no tiene perfil de Java/Bedrock)."
-                    } else {
-                        profileJson.optString("errorMessage", "Error obteniendo el perfil")
-                    }
-                    return@withContext AuthResult.Error(msg)
-                }
-                val skinUrl = profileJson.optJSONArray("skins")
-                    ?.optJSONObject(0)?.optString("url")
-
-                AuthResult.Success(
-                    profile = MinecraftProfile(
-                        uuid = profileJson.getString("id"),
-                        username = profileJson.getString("name"),
-                        skinUrl = skinUrl
-                    ),
-                    accessToken = mcAccessToken
-                )
-            }
+    private suspend fun authenticateMinecraftChain(msAccessToken: String): String = withContext(Dispatchers.IO) {
+        val xblBody = JSONObject().apply {
+            put("Properties", JSONObject().apply {
+                put("AuthMethod", "RPS")
+                put("SiteName", "user.auth.xboxlive.com")
+                put("RpsTicket", msAccessToken)
+            })
+            put("RelyingParty", "http://auth.xboxlive.com")
+            put("TokenType", "JWT")
         }
+        val xblResp = postJson("https://user.auth.xboxlive.com/user/authenticate", xblBody)
+        val xblToken = xblResp.getString("Token")
+        val userHash = xblResp.getJSONObject("DisplayClaims").getJSONArray("xui").getJSONObject(0).getString("uhs")
+
+        val xstsBody = JSONObject().apply {
+            put("Properties", JSONObject().apply {
+                put("SandboxId", "RETAIL")
+                put("UserTokens", JSONArray().put(xblToken))
+            })
+            put("RelyingParty", "rp://api.minecraftservices.com/")
+            put("TokenType", "JWT")
+        }
+        val (xstsOk, xstsResp) = postJsonRaw("https://xsts.auth.xboxlive.com/xsts/authorize", xstsBody)
+        if (!xstsOk) {
+            val err = xstsResp.optJSONObject("XErr") ?: xstsResp
+            val code = err.optInt("XErr", 0)
+            val msg = when (code) {
+                2148916233 -> "La cuenta no tiene una cuenta Xbox asociada o es menor de edad sin verificar."
+                2148916238 -> "La cuenta es infantil y requiere unirse a una familia de Microsoft."
+                else -> xstsResp.optString("Message", "Error en XSTS: $xstsResp")
+            }
+            throw IOException(msg)
+        }
+        val xstsToken = xstsResp.getString("Token")
+
+        val mcBody = JSONObject().apply {
+            put("identityToken", "XBL3.0 x=$userHash;$xstsToken")
+        }
+        val mcResp = postJson("https://api.minecraftservices.com/authentication/login_with_xbox", mcBody)
+        return@withContext mcResp.getString("access_token")
+    }
+
+    private suspend fun fetchProfile(mcAccessToken: String): JSONObject = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url("https://api.minecraftservices.com/minecraft/profile")
+            .header("Authorization", "Bearer $mcAccessToken")
+            .header("Accept", "application/json")
+            .get()
+            .build()
+
+        client.newCall(request).execute().use { resp ->
+            val text = resp.body?.string() ?: "{}"
+            val profileJson = JSONObject(text)
+            if (!resp.isSuccessful) {
+                throw IOException(profileJson.optString("errorDescription", "Error obteniendo perfil de Minecraft"))
+            }
+            return@withContext profileJson
+        }
+    }
 
     private fun postJson(url: String, body: JSONObject): JSONObject {
         val (ok, json) = postJsonRaw(url, body)
-        if (!ok) throw IOException(json.toString())
+        if (!ok) throw IOException("Error en POST $url: $json")
         return json
     }
 
@@ -214,6 +199,7 @@ object MicrosoftAuth {
         val mediaType = "application/json; charset=utf-8".toMediaType()
         val request = Request.Builder()
             .url(url)
+            .header("Content-Type", "application/json")
             .header("Accept", "application/json")
             .post(body.toString().toRequestBody(mediaType))
             .build()
