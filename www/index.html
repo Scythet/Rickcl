@@ -992,12 +992,6 @@ document.getElementById('btn-save-server').addEventListener('click', ()=>{
 const modalAccount = document.getElementById('modal-link-account');
 modalAccount.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click', ()=> modalAccount.classList.remove('open')));
 
-function openLinkAccountModal(){
-  // GUI shell only — no auth logic wired up here on purpose.
-  document.getElementById('device-code-value').textContent = 'XXXX-XXXX';
-  document.getElementById('device-status-text').textContent = 'Waiting for authentication…';
-  modalAccount.classList.add('open');
-}
 document.getElementById('sidebar-account-chip').addEventListener('click', ()=>{
   document.querySelector('.nav-item[data-view="accounts"]').click();
   if(state.accounts.length===0) setTimeout(openLinkAccountModal, 150);
