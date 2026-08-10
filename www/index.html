@@ -992,6 +992,60 @@ document.getElementById('btn-save-server').addEventListener('click', ()=>{
 const modalAccount = document.getElementById('modal-link-account');
 modalAccount.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click', ()=> modalAccount.classList.remove('open')));
 
+let cordovaReady = false;
+document.addEventListener('deviceready', function(){ cordovaReady = true; }, false);
+
+function openLinkAccountModal(){
+  alert('SE EJECUTÓ');
+  document.getElementById('device-code-value').textContent = '••••-••••';
+  document.getElementById('device-status-text').textContent = 'Requesting code…';
+  modalAccount.classList.add('open');
+
+  if (!window.cordova) {
+    document.getElementById('device-status-text').textContent = 'This build has no native bridge (cordova.js missing).';
+    return;
+  }
+  if (!cordovaReady) {
+    document.getElementById('device-status-text').textContent = 'Native bridge not ready yet (deviceready never fired). Try closing and reopening the app.';
+    return;
+  }
+  if (!cordova.plugins || !cordova.plugins.MSAuth) {
+    document.getElementById('device-status-text').textContent = 'MSAuth plugin not found — it may not have installed correctly in this build.';
+    return;
+  }
+
+  let gotResponse = false;
+  const timeoutId = setTimeout(function(){
+    if (!gotResponse) {
+      document.getElementById('device-status-text').textContent = 'Timed out after 20s — the native plugin never responded. Check that INTERNET permission is present and the device has network access.';
+    }
+  }, 20000);
+
+  cordova.plugins.MSAuth.startLogin(function(event){
+    gotResponse = true;
+    clearTimeout(timeoutId);
+
+    if (event.type === 'code') {
+      document.getElementById('device-code-value').textContent = event.userCode;
+      document.getElementById('device-status-text').textContent = 'Waiting for authentication…';
+    } else if (event.type === 'pending') {
+      document.getElementById('device-status-text').textContent = 'Waiting for authentication…';
+    } else if (event.type === 'success') {
+      state.accounts.forEach(a => a.active = false);
+      state.accounts.push({
+        id: event.uuid,
+        name: event.username,
+        tag: event.username,
+        active: true
+      });
+      modalAccount.classList.remove('open');
+      renderAccounts();
+      toast('Linked as ' + event.username, 'success');
+    } else if (event.type === 'error') {
+      document.getElementById('device-status-text').textContent = event.message;
+    }
+  });
+}
 document.getElementById('sidebar-account-chip').addEventListener('click', ()=>{
   document.querySelector('.nav-item[data-view="accounts"]').click();
   if(state.accounts.length===0) setTimeout(openLinkAccountModal, 150);
