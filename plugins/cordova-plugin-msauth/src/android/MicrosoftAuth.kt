@@ -1,4 +1,4 @@
-package com.lumina.launcher.auth
+package com.rickcl.msauth
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -11,12 +11,6 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.IOException
 
-/**
- * Flujo completo de autenticación Microsoft -> Xbox Live -> Minecraft.
- * Es el mismo mecanismo oficial que usan los launchers de terceros
- * (Lumina Launcher, MultiMC, etc). No evita ninguna protección: usa las
- * APIs públicas y documentadas de Microsoft Identity Platform y Xbox Live.
- */
 object MicrosoftAuth {
 
     private const val CLIENT_ID = "7db897c2-7229-4612-9003-2be8f81b6436"
@@ -24,8 +18,6 @@ object MicrosoftAuth {
     private const val SCOPE = "XboxLive.signin offline_access"
 
     private val client = OkHttpClient()
-
-    // ---------- Modelos de resultado ----------
 
     data class DeviceCodeInfo(
         val deviceCode: String,
@@ -50,8 +42,6 @@ object MicrosoftAuth {
         object Pending : PollStatus()
         data class Done(val result: AuthResult) : PollStatus()
     }
-
-    // ---------- Paso 1: pedir el código de dispositivo ----------
 
     suspend fun requestDeviceCode(): DeviceCodeInfo = withContext(Dispatchers.IO) {
         val body = FormBody.Builder()
@@ -78,8 +68,6 @@ object MicrosoftAuth {
             )
         }
     }
-
-    // ---------- Paso 2: hacer polling hasta que el usuario confirme ----------
 
     suspend fun pollForToken(
         deviceCode: DeviceCodeInfo,
@@ -114,8 +102,8 @@ object MicrosoftAuth {
                 val msAccessToken = payload.getString("access_token")
                 val result = try {
                     finishXboxAndMinecraftLogin(msAccessToken)
-                } catch (e: Exception) {
-                    AuthResult.Error(e.message ?: "Error autenticando con Xbox Live")
+                } catch (e: Throwable) {
+                    AuthResult.Error(e.message ?: (e.javaClass.simpleName + " talking to Xbox Live"))
                 }
                 onStatus(PollStatus.Done(result))
                 return
@@ -140,8 +128,6 @@ object MicrosoftAuth {
         }
         onStatus(PollStatus.Done(AuthResult.Error("Tiempo agotado esperando el login")))
     }
-
-    // ---------- Pasos 3, 4 y 5: XBL -> XSTS -> Minecraft ----------
 
     private suspend fun finishXboxAndMinecraftLogin(msAccessToken: String): AuthResult =
         withContext(Dispatchers.IO) {
@@ -217,8 +203,6 @@ object MicrosoftAuth {
             }
         }
 
-    // ---------- Helpers HTTP ----------
-
     private fun postJson(url: String, body: JSONObject): JSONObject {
         val (ok, json) = postJsonRaw(url, body)
         if (!ok) throw IOException(json.toString())
@@ -239,4 +223,3 @@ object MicrosoftAuth {
         }
     }
 }
-
