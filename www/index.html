@@ -727,6 +727,7 @@
 <div id="toast-container"></div>
 
 
+<script type="text/javascript" src="cordova.js"></script>
 <script>
 /* =========================================================
    In-memory state — no fake/sample data on purpose.
@@ -996,7 +997,6 @@ let cordovaReady = false;
 document.addEventListener('deviceready', function(){ cordovaReady = true; }, false);
 
 function openLinkAccountModal(){
-  alert('SE EJECUTÓ');
   document.getElementById('device-code-value').textContent = '••••-••••';
   document.getElementById('device-status-text').textContent = 'Requesting code…';
   modalAccount.classList.add('open');
