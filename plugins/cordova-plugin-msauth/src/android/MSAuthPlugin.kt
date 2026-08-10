@@ -11,10 +11,6 @@ import org.apache.cordova.PluginResult
 import org.json.JSONArray
 import org.json.JSONObject
 
-/**
- * Puente Cordova <-> Kotlin. El HTML llama a esto vía cordova.exec()
- * (ver www/msauth.js), y esto llama a la lógica real en MicrosoftAuth.kt.
- */
 class MSAuthPlugin : CordovaPlugin() {
 
     private val scope = CoroutineScope(Dispatchers.Main)
@@ -38,18 +34,12 @@ class MSAuthPlugin : CordovaPlugin() {
         }
     }
 
-    /**
-     * Un solo comando desde JS que:
-     * 1. pide el device code (y lo manda de inmediato al HTML con keepCallback=true)
-     * 2. hace el polling y manda un segundo mensaje al terminar (éxito o error)
-     */
     private fun startLogin(callbackContext: CallbackContext) {
         scope.launch {
             try {
                 val deviceCode = MicrosoftAuth.requestDeviceCode()
                 pendingDeviceCode = deviceCode
 
-                // Primer mensaje: el código para mostrar en el modal
                 val codeJson = JSONObject().apply {
                     put("type", "code")
                     put("userCode", deviceCode.userCode)
@@ -59,7 +49,6 @@ class MSAuthPlugin : CordovaPlugin() {
                 codeResult.keepCallback = true
                 callbackContext.sendPluginResult(codeResult)
 
-                // Luego el polling real
                 MicrosoftAuth.pollForToken(deviceCode) { status ->
                     when (status) {
                         is MicrosoftAuth.PollStatus.Pending -> {
@@ -94,20 +83,9 @@ class MSAuthPlugin : CordovaPlugin() {
                         }
                     }
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 val errJson = JSONObject().apply {
                     put("type", "error")
-                    put("message", e.message ?: "Error de conexión")
+                    put("message", e.message ?: (e.javaClass.simpleName + " during login"))
                 }
-                callbackContext.sendPluginResult(PluginResult(PluginResult.Status.OK, errJson))
-            }
-        }
-    }
-
-    private fun openVerificationUrl() {
-        val url = pendingDeviceCode?.verificationUri ?: "https://microsoft.com/link"
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        cordova.context.startActivity(intent)
-    }
-}
+                callbackContext.se
