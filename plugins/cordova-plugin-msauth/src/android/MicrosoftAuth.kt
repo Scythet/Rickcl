@@ -19,7 +19,7 @@ import java.io.IOException
  */
 object MicrosoftAuth {
 
-    private const val CLIENT_ID = "00000000441cc96b"
+    private const val CLIENT_ID = "7db897c2-7229-4612-9003-2be8f81b6436"
 
     private const val SCOPE = "XboxLive.signin offline_access"
 
